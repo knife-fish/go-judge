@@ -57,6 +57,10 @@ type Config struct {
 
 	// show version and exit
 	Version bool `flagUsage:"show version and exit"`
+
+	// polaris
+	ServeAddr string `flagUsage:"serve instance address for polaris"`
+	ServeName string `flagUsage:"serve name register to polaris" default:"judge.server"`
 }
 
 // Load loads config from flag & environment variables

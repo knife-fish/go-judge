@@ -16,6 +16,9 @@ Or, by docker
 
 ```bash
 docker run -it --rm --privileged --shm-size=256m -p 5050:5050 --name=go-judge criyle/go-judge
+
+# gRPC with polaris
+docker run -it --rm --privileged --shm-size=256m -p 5050:5050 -p 5051:5051 --name=go-judge --env ES_ENABLE_GRPC=true --env ES_GRPC_ADDR=:5051 --env ES_SERVE_ADDR=your server IP --add-host="host.docker.internal:host-gateway" go-judge
 ```
 
 ### REST API

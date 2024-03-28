@@ -13,8 +13,6 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
-      - darwin
     goarch:
       - "386"
       - amd64
@@ -60,81 +58,6 @@ nfpms:
 # nix:
 #   - name: go-judge
 #     license: "mit"
-dockers:
-  - image_templates:
-    - "criyle/go-judge:{{ .Tag }}-amd64"
-    use: buildx
-    dockerfile: "Dockerfile.goreleaser"
-    goarch: amd64
-    extra_files:
-      - "mount.yaml"
-    build_flag_templates:
-      - "--platform=linux/amd64"
-  - image_templates:
-    - "criyle/go-judge:{{ .Tag }}-arm64"
-    use: buildx
-    goarch: "arm64"
-    dockerfile: "Dockerfile.goreleaser"
-    extra_files:
-      - "mount.yaml"
-    build_flag_templates:
-      - "--platform=linux/arm64"
-  - image_templates:
-    - "criyle/go-judge:{{ .Tag }}-arm"
-    use: buildx
-    goarch: "arm"
-    goarm: "7"
-    dockerfile: "Dockerfile.goreleaser"
-    extra_files:
-      - "mount.yaml"
-    build_flag_templates:
-      - "--platform=linux/arm/v7"
-  - image_templates:
-    - "criyle/go-judge:{{ .Tag }}-ppc64le"
-    use: buildx
-    dockerfile: "Dockerfile.goreleaser"
-    goarch: ppc64le
-    extra_files:
-      - "mount.yaml"
-    build_flag_templates:
-      - "--platform=linux/ppc64le"
-  - image_templates:
-      - "criyle/go-judge:{{ .Tag }}-s390x"
-    use: buildx
-    dockerfile: "Dockerfile.goreleaser"
-    goarch: s390x
-    extra_files:
-      - "mount.yaml"
-    build_flag_templates:
-      - "--platform=linux/s390x"
-  # Debian is not supporting riscv64 on stable branch, skip it first
-  # - image_templates:
-  #   - "criyle/go-judge:{{ .Tag }}-riscv64"
-  #   use: buildx
-  #   dockerfile: "Dockerfile.goreleaser"
-  #   goarch: riscv64
-  #   extra_files:
-  #     - "mount.yaml"
-  #   build_flag_templates:
-  #     - "--platform=linux/riscv64"
-docker_manifests:
-  - name_template: "criyle/go-judge:{{ .Tag }}"
-    image_templates:
-      - "criyle/go-judge:{{ .Tag }}-amd64"
-      - "criyle/go-judge:{{ .Tag }}-arm64"
-      - "criyle/go-judge:{{ .Tag }}-arm"
-      - "criyle/go-judge:{{ .Tag }}-ppc64le"
-      - "criyle/go-judge:{{ .Tag }}-s390x"
-      # - "criyle/go-judge:{{ .Tag }}-riscv64"
-  - name_template: "criyle/go-judge:latest"
-    image_templates:
-      - "criyle/go-judge:{{ .Tag }}-amd64"
-      - "criyle/go-judge:{{ .Tag }}-arm64"
-      - "criyle/go-judge:{{ .Tag }}-arm"
-      - "criyle/go-judge:{{ .Tag }}-ppc64le"
-      - "criyle/go-judge:{{ .Tag }}-s390x"
-      # - "criyle/go-judge:{{ .Tag }}-riscv64"
-    skip_push: auto
 checksum:
   name_template: "checksums.txt"
 snapshot:
@@ -147,5 +70,5 @@ changelog:
       - "^test:"
 release:
   github:
-    owner: criyle
+    owner: knife-fish
     name: go-judge

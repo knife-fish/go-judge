@@ -18,18 +18,6 @@ jobs:
       -
         name: Fetch all tags
         run: git fetch --force --tags
-      - 
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - 
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - 
-        name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: Set up Go
         uses: actions/setup-go@v5
@@ -61,11 +49,9 @@ jobs:
     strategy:
       matrix:
         os:
-          - windows-latest
           - ubuntu-latest
-          - macos-latest
         GOARCH:
-          - amd64 
+          - amd64
         include:
           - os: ubuntu-latest
             GOARCH: "386"
@@ -75,8 +61,6 @@ jobs:
             GOARCH: "arm64"
           - os: ubuntu-latest
             GOARCH: "riscv64"
-          - os: macos-latest 
-            GOARCH: "arm64"
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -92,7 +76,7 @@ jobs:
         run: go generate ./cmd/go-judge/version
 
       - name: Build on Linux
-        if: ${{ matrix.os == 'ubuntu-latest' }} 
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         env:
           GOARCH: ${{ matrix.GOARCH }}
           CGO_ENABLE: 0
@@ -101,31 +85,31 @@ jobs:
           go build -v -o go-judge-shell ./cmd/go-judge-shell
           go build -o go-judge-init ./cmd/go-judge-init
       - name: Build shared objects on Linux
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.GOARCH == 'amd64' }} 
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.GOARCH == 'amd64' }}
         env:
           GOARCH: ${{ matrix.GOARCH }}
         run: |
           go build -buildmode=c-shared -o go-judge.so ./cmd/go-judge-ffi
       - name: Upload go-judge on linux
-        if: ${{ matrix.os == 'ubuntu-latest' }} 
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: go-judge-${{ matrix.GOARCH }}
           path: go-judge
       - name: Upload go-judge-shell on linux
-        if: ${{ matrix.os == 'ubuntu-latest' }} 
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: go-judge-shell-${{ matrix.GOARCH }}
           path: go-judge-shell
       - name: Upload go-judge-init on linux
-        if: ${{ matrix.os == 'ubuntu-latest' }} 
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: go-judge-init-${{ matrix.GOARCH }}
           path: go-judge-init
       - name: Upload go-judge.so on linux
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.GOARCH == 'amd64' }} 
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.GOARCH == 'amd64' }}
         uses: actions/upload-artifact@v4
         with:
           name: go-judge-${{ matrix.GOARCH }}.so
@@ -186,4 +170,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: go-judge-${{ matrix.GOARCH }}.dylib
-          path: go-judge.dylib  
+          path: go-judge.dylib

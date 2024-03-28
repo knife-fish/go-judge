@@ -35,7 +35,12 @@ import (
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/mem"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -229,6 +234,7 @@ func initGRPCServer(conf *config.Config, work worker.Worker, fs filestore.FileSt
 		// Init gRPC server
 		esServer := grpcexecutor.New(work, fs, conf.SrcPrefix, logger)
 		grpcServer := newGRPCServer(conf, esServer)
+		var polarisSrv *polaris.Server
 
 		return func() {
 				lis, err := newListener(conf.GRPCAddr)
@@ -236,9 +242,34 @@ func initGRPCServer(conf *config.Config, work worker.Worker, fs filestore.FileSt
 					logger.Sugar().Error("gRPC listen failed: ", err)
 					return
 				}
+
+				// 执行北极星的注册命令
+				meta := make(map[string]string)
+				meta["OS"] = runtime.GOOS
+				meta["GOARCH"] = runtime.GOARCH
+				meta["Version"] = runtime.Version()
+				opts := []polaris.ServerOption{
+					polaris.WithServiceName(conf.ServeName),
+					polaris.WithServerVersion(version.Version),
+					polaris.WithServerMetadata(meta),
+				}
+				//不设置WithServerHost默认将通过和北极星服务端建立一次 TCP 连接获取本机对外 IP
+				if conf.ServeAddr != "" {
+					logger.Sugar().Info("gRPC service ", conf.ServeAddr, " register to Polaris success")
+					opts = append(opts, polaris.WithServerHost(conf.ServeAddr))
+				}
+				polarisSrv, err = polaris.Register(grpcServer, lis, opts...)
+				if err != nil {
+					logger.Sugar().Error("gRPC service ", conf.ServeName, " register to Polaris failed", err)
+				} else {
+					logger.Sugar().Info("gRPC service ", conf.ServeName, " register to Polaris success")
+				}
+
 				logger.Sugar().Info("Starting gRPC server at ", conf.GRPCAddr, " with listener ", printListener(lis))
 				logger.Sugar().Info("gRPC server stopped: ", grpcServer.Serve(lis))
 			}, func(ctx context.Context) error {
+				// 执行北极星的反注册命令
+				polarisSrv.Deregister()
 				grpcServer.GracefulStop()
 				logger.Sugar().Info("GRPC server shutdown")
 				return nil
@@ -305,6 +336,9 @@ func initHTTPMux(conf *config.Config, work worker.Worker, fs filestore.FileStore
 
 	// Config handle
 	r.GET("/config", generateHandleConfig(conf, builderParam))
+
+	// OS stat
+	r.GET("/stat", generateHandleStat(conf, builderParam))
 
 	// Add auth token
 	if conf.AuthToken != "" {
@@ -526,6 +560,59 @@ func generateHandleConfig(conf *config.Config, builderParam map[string]any) func
 			"stream":            true,
 			"fileStorePath":     conf.Dir,
 			"runnerConfig":      builderParam,
+		})
+	}
+}
+
+func generateHandleStat(conf *config.Config, builderParam map[string]any) func(*gin.Context) {
+	vmStat, _ := mem.VirtualMemory()
+	memMap := map[string]any{
+		"total":       vmStat.Total,
+		"available":   vmStat.Available,
+		"used":        vmStat.Used,
+		"usedPercent": vmStat.UsedPercent,
+		"free":        vmStat.Free,
+	}
+
+	diskStat, _ := disk.Usage("/")
+	diskMap := map[string]any{
+		"total":       diskStat.Total,
+		"used":        diskStat.Used,
+		"usedPercent": diskStat.UsedPercent,
+		"free":        diskStat.Free,
+	}
+
+	physicalCnt, _ := cpu.Counts(false)
+	logicalCnt, _ := cpu.Counts(true)
+	// fmt.Printf("physical count:%d logical count:%d\n", physicalCnt, logicalCnt)
+
+	totalPercent, _ := cpu.Percent(1*time.Second, false)
+	// perPercents, _ := cpu.Percent(1*time.Second, true)
+	// fmt.Printf("total percent:%v per percents:%v", totalPercent, perPercents)
+	cpuMap := map[string]any{
+		"physicalCnt":  physicalCnt,
+		"logicalCnt":   logicalCnt,
+		"totalPercent": totalPercent,
+		//"perPercents":  perPercents,
+	}
+
+	// host or machine kernel, uptime, platform Info
+	hostStat, _ := host.Info()
+	hostMap := map[string]any{
+		"os":              hostStat.OS,
+		"platform":        hostStat.Platform,
+		"platformFamily":  hostStat.PlatformFamily,
+		"platformVersion": hostStat.PlatformVersion,
+		"kernelVersion":   hostStat.KernelVersion,
+		"uptime":          hostStat.Uptime,
+	}
+
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"mem":  memMap,
+			"disk": diskMap,
+			"cpu":  cpuMap,
+			"host": hostMap,
 		})
 	}
 }
