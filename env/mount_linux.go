@@ -31,12 +31,14 @@ type Mounts struct {
 	Mount      []Mount  `yaml:"mount"`
 	SymLinks   []Link   `yaml:"symLink"`
 	MaskPaths  []string `yaml:"maskPath"`
+	InitCmd    string   `yaml:"initCmd"`
 	WorkDir    string   `yaml:"workDir"`
 	HostName   string   `yaml:"hostName"`
 	DomainName string   `yaml:"domainName"`
 	UID        int      `yaml:"uid"`
 	GID        int      `yaml:"gid"`
 	Proc       bool     `yaml:"proc"`
+	ProcRW     bool     `yaml:"procrw"`
 }
 
 func readMountConfig(p string) (*Mounts, error) {
@@ -76,7 +78,7 @@ func parseMountConfig(m *Mounts) (*mount.Builder, error) {
 		}
 	}
 	if m.Proc {
-		b.WithProc()
+		b.WithProcRW(m.ProcRW)
 	}
 	return b, nil
 }
@@ -124,6 +126,8 @@ var defaultSymLinks = []container.SymbolicLink{
 }
 
 var defaultMaskPaths = []string{
+	"/sys/firmware",
+	"/sys/devices/virtual/powercap",
 	"/proc/acpi",
 	"/proc/asound",
 	"/proc/kcore",

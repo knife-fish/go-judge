@@ -10,21 +10,26 @@ jobs:
     name: Goreleaser
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      -
-        name: Fetch all tags
+      - name: Fetch all tags
         run: git fetch --force --tags
-      -
-        name: Set up Go
+     # - name: Set up QEMU
+     #   uses: docker/setup-qemu-action@v3
+     # - name: Set up Docker Buildx
+     #   uses: docker/setup-buildx-action@v3
+     # - name: Login to DockerHub
+     #   uses: docker/login-action@v3
+     #   with:
+     #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+     #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
-      -
-        name: Run GoReleaser
+          go-version: "1.22"
+      - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         if: ${{ contains(github.ref, 'v') }}
         with:
@@ -34,8 +39,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Test GoReleaser
+      - name: Test GoReleaser
         uses: goreleaser/goreleaser-action@v5
         if: ${{ ! contains(github.ref, 'v') }}
         with:
@@ -49,7 +53,9 @@ jobs:
     strategy:
       matrix:
         os:
+         # - windows-latest
           - ubuntu-latest
+         # - macos-latest
         GOARCH:
           - amd64
         include:
@@ -61,13 +67,15 @@ jobs:
             GOARCH: "arm64"
           - os: ubuntu-latest
             GOARCH: "riscv64"
+          - os: macos-latest
+            GOARCH: "arm64"
     steps:
       - name: Check out
         uses: actions/checkout@v4
       - name: Set up Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: "1.22"
       - name: Get git tag ref
         run: git fetch --prune --unshallow --tags
       - name: Download dependencies
@@ -88,6 +96,7 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.GOARCH == 'amd64' }}
         env:
           GOARCH: ${{ matrix.GOARCH }}
+          CGO_ENABLE: 1
         run: |
           go build -buildmode=c-shared -o go-judge.so ./cmd/go-judge-ffi
       - name: Upload go-judge on linux
@@ -119,12 +128,14 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' }}
         env:
           GOARCH: ${{ matrix.GOARCH }}
+          CGO_ENABLE: 0
         run: |
           go build -tags grpcnotrace,nomsgpack -o go-judge.exe ./cmd/go-judge
       - name: Build shared object on Windows
         if: ${{ matrix.os == 'windows-latest' }}
         env:
           GOARCH: ${{ matrix.GOARCH }}
+          CGO_ENABLE: 1
         run: |
           go build -buildmode=c-shared -o go-judge.dll ./cmd/go-judge-ffi
       - name: Upload go-judge.exe on Windows
@@ -144,15 +155,17 @@ jobs:
         if: ${{ matrix.os == 'macos-latest' }}
         env:
           GOARCH: ${{ matrix.GOARCH }}
+          CGO_ENABLE: 0
         run: |
           go build -tags grpcnotrace,nomsgpack -o go-judge ./cmd/go-judge
           go build -o go-judge-shell ./cmd/go-judge-shell
-      - name: Build shared object on macOS
-        if: ${{ matrix.os == 'macos-latest' && matrix.GOARCH == 'amd64' }}
-        env:
-          GOARCH: ${{ matrix.GOARCH }}
-        run: |
-          go build -buildmode=c-shared -o go-judge.dylib ./cmd/go-judge-ffi
+      # - name: Build shared object on macOS
+      #   if: ${{ matrix.os == 'macos-latest' && matrix.GOARCH == 'amd64' }}
+      #   env:
+      #     GOARCH: ${{ matrix.GOARCH }}
+      #     CGO_ENABLE: 1
+      #   run: |
+      #     go build -buildmode=c-shared -o go-judge.dylib ./cmd/go-judge-ffi
       - name: Upload go-judge on macOS
         if: ${{ matrix.os == 'macos-latest' }}
         uses: actions/upload-artifact@v4
@@ -165,9 +178,9 @@ jobs:
         with:
           name: go-judge-shell-MacOS-${{ matrix.GOARCH }}
           path: go-judge-shell
-      - name: Upload go-judge.dylib on macOS
-        if: ${{ matrix.os == 'macos-latest' && matrix.GOARCH == 'amd64' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: go-judge-${{ matrix.GOARCH }}.dylib
-          path: go-judge.dylib
+      # - name: Upload go-judge.dylib on macOS
+      #   if: ${{ matrix.os == 'macos-latest' && matrix.GOARCH == 'amd64' }}
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: go-judge-${{ matrix.GOARCH }}.dylib
+      #     path: go-judge.dylib
